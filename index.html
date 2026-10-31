@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0b6cf0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>محاكاة متتبع الشمس والبطارية (نسخة v4)</title>
+<style>
+  :root {
+    --fg: #1c1f24; --muted: #646b76; --border: #d6dae1; --subtle: #e8ebef;
+    --card: #ffffff; --inset: #f4f6f9; --accent: #0b6cf0;
+    --panel: #1e3a5f; --panel-hi: #2f5d8f; --sun: #f5b400; --ray: #f5b400;
+    --c-fix: #8a919c; --c-trk: #0b6cf0; --c-ideal: #12b886; --c-err: #d92d20; --c-mot: #f2740d;
+    --ok: #067647; --warn: #b54708; --bad: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme=light]) {
+      --fg: #e6e9ee; --muted: #98a2b0; --border: #3a4149; --subtle: #2b3138;
+      --card: #1c2128; --inset: #141a21; --accent: #63a5ff;
+      --panel: #2b4f7a; --panel-hi: #4475a8; --sun: #ffd166; --ray: #ffd166;
+      --c-fix: #6b7681; --c-trk: #63a5ff; --c-ideal: #3ddc97; --c-err: #ff6b5e; --c-mot: #ff9d4d;
+      --ok: #3ddc97; --warn: #fdb022; --bad: #ff7a6b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 18px; background: var(--inset); color: var(--fg);
+    font-family: "Segoe UI", Tahoma, system-ui, "Noto Sans Arabic", sans-serif; font-size: 14px; line-height: 1.6; }
+  .app { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  h1 { font-size: 20px; font-weight: 500; margin: 0; }
+  h2 { font-size: 14px; font-weight: 500; margin: 0 0 10px; color: var(--muted); }
+  .sub { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .head { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+  button, select, input[type=date], input[type=time], input[type=number] { font: inherit; font-size: 13px; color: var(--fg); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px; }
+  button { cursor: pointer; }
+  button:hover { background: var(--subtle); }
+  button[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+  input[type=number] { width: 70px; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 190px; min-width: 170px; }
+  .field > label { font-size: 12.5px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+  .num { color: var(--fg); font-variant-numeric: tabular-nums; direction: ltr; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; }
+  .presets button { border-radius: 999px; }
+  .views { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 900px) { .views { grid-template-columns: 1.35fr 1fr; } }
+  svg { display: block; width: 100%; height: auto; }
+  svg text { font-family: inherit; font-size: 11px; fill: var(--muted); }
+  svg .big { font-size: 13px; fill: var(--fg); }
+  .gl { stroke: var(--subtle); stroke-width: 1; fill: none; }
+  .kv { display: grid; grid-template-columns: 1fr auto; gap: 0 14px; font-size: 13px; }
+  .kv > div { padding: 5px 0; border-bottom: 1px solid var(--subtle); }
+  .kv > div:nth-child(2n) { text-align: left; direction: ltr; font-variant-numeric: tabular-nums; }
+  .k { color: var(--muted); }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; min-height: 28px; align-items: center; margin-top: 10px; }
+  .badge { font-size: 12.5px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 11px; color: var(--muted); }
+  .badge.ok { border-color: var(--ok); color: var(--ok); }
+  .badge.warn { border-color: var(--warn); color: var(--warn); }
+  .badge.bad { border-color: var(--bad); color: var(--bad); }
+  .scrub { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+  .scrub input[type=range] { flex: 1 1 420px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  .legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-inline-end: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--subtle); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; }
+  td.n { font-variant-numeric: tabular-nums; direction: ltr; text-align: left; }
+  tr.best td { color: var(--ok); }
+  .loadtbl td { white-space: normal; }
+  .checks { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; }
+  .checks label { display: inline-flex; gap: 6px; align-items: center; }
+  .note { font-size: 12.5px; color: var(--muted); }
+  .verdict { font-size: 13px; margin-top: 10px; }
+  .verdict div { margin-bottom: 4px; }
+  .foot { color: var(--muted); font-size: 12px; text-align: center; }
+  .log { max-height: 280px; overflow: auto; font-size: 13px; }
+  .day-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px solid var(--subtle); }
+  .day-row span:first-child { direction: ltr; text-align: left; font-variant-numeric: tabular-nums; }
+  input[type=text] { font: inherit; font-size: 13px; color: var(--fg); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px; }
+  @media (max-width: 640px) { body { padding: 10px; } h1 { font-size: 17px; } .panel { padding: 10px; } }
+  @media print { .presets, .scrub, button { display: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="head">
+    <div>
+      <h1>محاكاة متتبع الشمس والبطارية</h1>
+      <p class="sub">اختار اليوم والساعة، والأحمال ومستواها، وعمق التفريغ، وتحكم الشبكة، ووضع التتبع. اللوح على عمود بسيرفوهين، والإشعاع بيوصل عمودي على اللوح بقدر ما التتبع دقيق. الرسم بيتحسب بخطوات 5 ثواني وبيتعرض بين الخطوات عشان الحركة تبقى سلسة.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" id="btn-theme">الوضع: تلقائي</button>
+      <button type="button" id="btn-print">طباعة / PDF</button>
+    </div>
+  </header>
+
+  <section class="panel">
+    <h2>اليوم والساعة</h2>
+    <div class="row">
+      <div class="field" style="flex:0 1 auto">
+        <label>أيام جاهزة</label>
+        <div class="presets" id="presets">
+          <button type="button" data-d="172">21 يونيو</button>
+          <button type="button" data-d="304">31 أكتوبر</button>
+          <button type="button" data-d="12">12 يناير</button>
+        </div>
+      </div>
+      <div class="field" style="flex:0 1 auto">
+        <label for="date">اختار اليوم</label>
+        <input id="date" type="date" value="2026-10-31">
+      </div>
+      <div class="field" style="flex:0 1 auto">
+        <label for="tm">اختار الساعة</label>
+        <input id="tm" type="time" value="12:00" step="5">
+      </div>
+      <div class="field">
+        <label for="cloud">الغيوم <span class="num" id="cloud-v"></span></label>
+        <input id="cloud" type="range" min="0" max="100" step="5">
+      </div>
+      <div class="field">
+        <label for="peak">مستوى الإشعاع (ذروة) <span class="num" id="peak-v"></span></label>
+        <input id="peak" type="range" min="300" max="1100" step="25">
+      </div>
+      <div class="field">
+        <label for="panelW">قدرة اللوح الاسمية <span class="num" id="panelW-v"></span></label>
+        <input id="panelW" type="range" min="5" max="100" step="1">
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>الأحمال والبطارية والشبكة</h2>
+    <div class="row">
+      <div class="field">
+        <label for="loadMult">مستوى الأحمال (مضاعف) <span class="num" id="loadMult-v"></span></label>
+        <input id="loadMult" type="range" min="0.25" max="2" step="0.05">
+      </div>
+      <div class="field" style="flex:0 1 auto">
+        <label for="dod">عمق التفريغ المسموح</label>
+        <select id="dod">
+          <option value="50">50 %</option><option value="70">70 %</option><option value="80">80 %</option><option value="90">90 %</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="socStart">شحنة البطارية عند 00:00 <span class="num" id="socStart-v"></span></label>
+        <input id="socStart" type="range" min="0" max="100" step="1">
+      </div>
+      <div class="field" style="flex:0 1 auto">
+        <label for="gridMode">التغذية من الشبكة</label>
+        <select id="gridMode">
+          <option value="auto">تلقائي</option><option value="on">مفتوحة دائماً</option><option value="off">مقفولة دائماً</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="gridThr">عتبة تشغيل الشبكة (SOC) <span class="num" id="gridThr-v"></span></label>
+        <input id="gridThr" type="range" min="15" max="50" step="1">
+      </div>
+      <div class="field">
+        <label for="shedThr">عتبة فصل الأحمال غير الأساسية <span class="num" id="shedThr-v"></span></label>
+        <input id="shedThr" type="range" min="5" max="30" step="1">
+      </div>
+    </div>
+    <div style="overflow-x:auto;margin-top:12px">
+      <table class="loadtbl" id="loadtbl"></table>
+    </div>
+    <p class="note" id="floor-note" style="margin:8px 0 0"></p>
+  </section>
+
+  <section class="panel">
+    <h2>التتبع</h2>
+    <div class="row">
+      <div class="field" style="flex:0 1 auto">
+        <label for="trackMode">وضع التتبع</label>
+        <select id="trackMode">
+          <option value="ldr">LDR (حلقة التحكم)</option>
+          <option value="astro">فلكي (حسب الوقت والموقع)</option>
+          <option value="ideal">مثالي (سقف)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="wind">سرعة الرياح (م/ث) <span class="num" id="wind-v"></span></label>
+        <input id="wind" type="range" min="0" max="20" step="0.5">
+      </div>
+      <div class="field">
+        <label for="slew">أقصى سرعة السيرفو (°/دقيقة) <span class="num" id="slew-v"></span></label>
+        <input id="slew" type="range" min="5" max="180" step="5">
+      </div>
+      <div class="field">
+        <label for="db">المنطقة الميتة (°) <span class="num" id="db-v"></span></label>
+        <input id="db" type="range" min="0" max="5" step="0.1">
+      </div>
+      <div class="field">
+        <label for="gain">قوة التصحيح <span class="num" id="gain-v"></span></label>
+        <input id="gain" type="range" min="0.05" max="0.6" step="0.05">
+      </div>
+      <div class="field">
+        <label for="delta">زاوية حساسات LDR <span class="num" id="delta-v"></span></label>
+        <input id="delta" type="range" min="5" max="40" step="1">
+      </div>
+      <div class="field">
+        <label for="wear">وزن تآكل البطارية <span class="num" id="wear-v"></span></label>
+        <input id="wear" type="range" min="0" max="3" step="0.1">
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="views">
+      <div>
+        <h2>اللوح على العمود (3D)</h2>
+        <svg id="scene" viewBox="0 0 460 340" role="img" aria-label="منظر ثلاثي للوح على عمود"></svg>
+      </div>
+      <div>
+        <h2>الاتجاه من أعلى</h2>
+        <svg id="compass" viewBox="0 0 240 240" role="img" aria-label="اتجاه اللوح مقابل الشمس"></svg>
+        <div class="kv" id="readout" style="margin-top:6px"></div>
+        <div class="badges" id="badges"></div>
+      </div>
+    </div>
+    <div class="scrub">
+      <button type="button" id="btn-play">تشغيل ▶</button>
+      <select id="speed" aria-label="سرعة التشغيل">
+        <option value="10">10 دقيقة/ثانية</option>
+        <option value="30" selected>30 دقيقة/ثانية</option>
+        <option value="90">90 دقيقة/ثانية</option>
+      </select>
+      <input id="scrub" type="range" min="0" max="17279" step="1" value="0" aria-label="وقت اليوم">
+      <span class="num" id="scrub-t" style="font-size:16px">00:00:00</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>القدرة المولدة وشحن البطارية</h2>
+    <div class="legend">
+      <span><i style="background:var(--c-fix)"></i>تركيب ثابت</span>
+      <span><i style="background:var(--c-trk)"></i>متتبع (الوضع المختار)</span>
+      <span><i style="background:var(--c-ideal);border-top:2px dashed var(--c-ideal);height:0"></i>مثالي</span>
+    </div>
+    <svg id="chartPV" viewBox="0 0 1000 200" role="img" aria-label="قدرة اللوح على مدار اليوم"></svg>
+    <h2 style="margin-top:14px">شحنة البطارية SOC على مدار اليوم (%)</h2>
+    <svg id="chartSOC" viewBox="0 0 1000 200" role="img" aria-label="شحنة البطارية على مدار اليوم"></svg>
+    <h2 style="margin-top:14px">جهد البطارية (V)</h2>
+    <svg id="chartV" viewBox="0 0 1000 200" role="img" aria-label="جهد البطارية"></svg>
+    <h2 style="margin-top:14px">تيار البطارية (A): موجب شحن وسالب تفريغ، والمتقطع تيار الحمل</h2>
+    <svg id="chartI" viewBox="0 0 1000 200" role="img" aria-label="تيار البطارية والحمل"></svg>
+    <div style="overflow-x:auto;margin-top:12px"><table id="cmp"></table></div>
+    <div class="verdict" id="verdict"></div>
+  </section>
+
+  <section class="panel">
+    <h2>التحسين التلقائي والذكاء الاصطناعي</h2>
+    <div class="row">
+      <button type="button" id="btn-opt">حسّن النظام تلقائياً</button>
+      <button type="button" id="btn-undo" disabled>رجوع للإعداد السابق</button>
+    </div>
+    <p class="note" id="opt-msg"></p>
+    <div style="overflow-x:auto"><table id="opt-tbl"></table></div>
+    <div class="row" style="margin-top:12px">
+      <div class="field"><label for="ai-url">رابط نموذج الذكاء الاصطناعي (اختياري)</label><input id="ai-url" type="text" placeholder="https://your-server/optimize" style="width:100%"></div>
+      <button type="button" id="btn-ai">اسأل النموذج</button>
+    </div>
+    <p class="note" id="ai-msg"></p>
+    <div class="field"><label for="ai-token">مفتاح التطبيق (اللي حطيته في السيرفر)</label><input id="ai-token" type="password" style="width:100%"></div>
+    <p class="note">التحسين هنا بحث شبكي على القيم (مش تعلم آلي): بيجرّب 27 إعداد ويختار الأعلى في الطاقة المخدومة مع عقوبة للفيوز والقطع. لو وصلت رابط، بيتبعت ملخص اليوم والإعدادات للنموذج، والنموذج يرجّع JSON فيه gridThr وshedThr وdod (واختياري trackMode وnote).</p>
+  </section>
+
+  <section class="panel">
+    <h2>سجل الأيام المحفوظة</h2>
+    <div class="row">
+      <button type="button" id="btn-save">احفظ اليوم الحالي</button>
+      <button type="button" id="btn-export">تصدير كل الأيام (JSON)</button>
+    </div>
+    <div id="days" class="log" style="margin-top:10px"></div>
+    <p class="note">الحفظ على الجهاز نفسه، وكل يوم بيحفظ المنحنيات بالدقيقة (الإنتاج والجهد والتيار والـ SOC). حوالي 80 يوم بيتسع في المتصفح، ولو امتلأ احذف أيام قديمة.</p>
+  </section>
+
+  <div class="foot">تقديري: الفلك والهندسة دقيقين، والإشعاع والبطارية نموذج مبسط (منحنى جهد خطي، MPPT بكفاءة 93 %). للفهم والتصميم، مش قياس دقيق.</div>
+</div>
+
+<script>
+(function () {
+  var D2R = Math.PI / 180, R2D = 180 / Math.PI;
+  var N = 1440, SUB = 12, M = N * SUB;            /* 12 خطوة في الدقيقة = 5 ثواني */
+  var DT_S = 5, DT_H = DT_S / 3600, DT_MIN = DT_S / 60;
+  var LAT = 30.6, LON = 31.0, PANEL_EFF = 0.85;
+  var PARK_TILT = 5, DAY_MIN_EL = 3, LIGHT_MIN = 30, WIND_STOW = 12, WIND_RESUME = 9, STOW_TILT = 5;
+  var CAP = 7, FUSE_A = 5, FUSE_RESET_STEPS = 15 * 60 / DT_S, CHG_EFF = 0.93, CHG_MAX = 3;
+  var LOAD_KEYS = ['lamp', 'phone', 'laptop', 'extra'];
+  var LOAD_DEF = {
+    lamp:   { name: 'مصباح طوارئ', W: 4,  eff: 1,    on: true,  ess: true,  s: 18, e: 6 },
+    phone:  { name: 'شحن موبايل (USB)', W: 5, eff: 0.85, on: true, ess: false, s: 19, e: 20 },
+    laptop: { name: 'شحن لاب', W: 45, eff: 0.9,  on: false, ess: false, s: 13, e: 14 },
+    extra:  { name: 'حمل إضافي (مروحة مثلاً)', W: 12, eff: 0.9, on: false, ess: false, s: 10, e: 12 }
+  };
+
+  var P = {
+    day: 304, cloud: 5, peak: 1000, panelW: 20, loadMult: 1, socStart: 62, dod: 70,
+    loads: JSON.parse(JSON.stringify(LOAD_DEF)),
+    gridMode: 'auto', gridThr: 30, shedThr: 10,
+    trackMode: 'ldr', wind: 4, slew: 60, db: 0.8, gain: 0.35, delta: 20, wear: 1, seed: 11
+  };
+  var PRESET_SEEDS = { 172: 3, 304: 11, 12: 19 };
+
+  var TF = 0, T = 0, playing = false, speed = 30, lastFrame = 0;
+  var R = null, O = null;
+
+  var $ = function (s) { return document.querySelector(s); };
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function hhmmss(i) { var s = Math.floor(i * DT_S); return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60); }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function clampSym(v, l) { return clamp(v, -l, l); }
+  function wrapPi(a) { return ((a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; }
+  function hourIn(h, s, e) {
+    if (s === e) return false;
+    return s < e ? (h >= s && h < e) : (h >= s || h < e);
+  }
+  function dayFromDate(str) { var d = Date.parse(str + 'T00:00:00Z'), s = Date.UTC(2026, 0, 1); return Math.round((d - s) / 86400000) + 1; }
+  function dateFromDay(d) { return new Date(Date.UTC(2026, 0, d)).toISOString().slice(0, 10); }
+  function dayName(d) { return new Date(Date.UTC(2026, 0, d)).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', timeZone: 'UTC' }); }
+
+  /* ================= هندسة الشمس ================= */
+  function sunPos(day, clockH) {
+    var B = 360 / 365 * (day - 81) * D2R;
+    var eot = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+    var solar = clockH + (4 * (LON - 30) + eot) / 60;
+    var H = (solar - 12) * 15 * D2R;
+    var dec = 23.45 * D2R * Math.sin(360 / 365 * (284 + day) * D2R);
+    var phi = LAT * D2R;
+    var el = Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H));
+    var azS = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi));
+    var az = ((azS + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    return { el: el, az: az };
+  }
+  function sunVec(sp) { var c = Math.cos(sp.el); return [c * Math.sin(sp.az), c * Math.cos(sp.az), Math.sin(sp.el)]; }
+  function nrm(g, b) { return [Math.sin(b) * Math.sin(g), Math.sin(b) * Math.cos(g), Math.cos(b)]; }
+  function tAz(g) { return [Math.cos(g), -Math.sin(g), 0]; }
+  function tTi(g, b) { return [Math.cos(b) * Math.sin(g), Math.cos(b) * Math.cos(g), -Math.sin(b)]; }
+  function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+  function comb(n, t, c, s) { return [n[0] * c + t[0] * s, n[1] * c + t[1] * s, n[2] * c + t[2] * s]; }
+
+  /* ================= المحاكاة ================= */
+  function newSrc(soc0) {
+    var F = function () { return new Float32Array(M); };
+    return { soc: soc0, gridOn: false, nonShed: false, cut: false, blownLeft: 0, trips: 0, shedSteps: 0, cutSteps: 0,
+      eCharge: 0, ePV: 0, eGrid: 0, eBat: 0, eLoad: 0, socA: F(), pvA: F(), gridA: F(), batA: F(), vbA: F(), ibA: F(), ilA: F() };
+  }
+
+  function simulate(p) {
+    var rnd = mulberry32(p.seed);
+    var cloudF = new Float32Array(N).fill(1 - p.cloud / 100 * 0.35);
+    var pEv = p.cloud / 100 * 0.015, t = 0;
+    while (t < N) {
+      if (rnd() < pEv) {
+        var len = 8 + Math.floor(rnd() * 25), depth = 0.3 + rnd() * 0.6;
+        for (var k = t; k < Math.min(N, t + len); k++) cloudF[k] = Math.min(cloudF[k], 1 - depth);
+        t += len;
+      } else t++;
+    }
+
+    var F = function () { return new Float32Array(M); };
+    var out = {
+      el: F(), az: F(), gT: F(), bT: F(), eA: F(), eB: F(), errT: F(), errE: F(), spd: F(),
+      lE: F(), lW: F(), lT: F(), lB: F(), pFix: F(), pTrk: F(), pIdl: F(),
+      mode: new Uint8Array(M), mov: new Uint8Array(M), dA: new Int8Array(M), dB: new Int8Array(M), flag: new Uint8Array(M)
+    };
+    var events = [];
+    var src = { fix: newSrc(p.socStart), trk: newSrc(p.socStart), idl: newSrc(p.socStart) };
+
+    function stepSrc(st, pvW, i, clockH, log) {
+      var vb = 11.0 + 1.7 * st.soc / 100, floor = 100 - p.dod;
+      var pG = st.gridOn, pS = st.nonShed, pC = st.cut;
+      if (p.gridMode === 'on') st.gridOn = true;
+      else if (p.gridMode === 'off') st.gridOn = false;
+      else if (!st.gridOn && st.soc < p.gridThr) st.gridOn = true;
+      else if (st.gridOn && st.soc >= p.gridThr + 5) st.gridOn = false;
+      if (st.soc < p.shedThr) st.nonShed = true; else if (st.soc >= p.shedThr + 5) st.nonShed = false;
+      if (!st.gridOn && st.soc <= floor) st.cut = true; else if (st.gridOn || st.soc >= floor + 3) st.cut = false;
+
+      var blown = st.blownLeft > 0;
+      if (blown) st.blownLeft--;
+
+      var loadW = 0, shedding = false;
+      if (!blown && !st.cut) {
+        LOAD_KEYS.forEach(function (k) {
+          var L = p.loads[k];
+          if (!L.on || !hourIn(clockH, L.s, L.e)) return;
+          if (!L.ess && st.nonShed) { shedding = true; return; }
+          loadW += p.loadMult * L.W / L.eff;
+        });
+        loadW += 1.8;                                 /* ESP32 + السيرفوهات */
+      }
+      var gridW = (st.gridOn && !blown) ? loadW : 0;
+      var batW = loadW - gridW;
+      var ibd = batW / vb;
+
+      if (!blown && ibd > FUSE_A) {
+        st.trips++; st.blownLeft = FUSE_RESET_STEPS;
+        if (log) events.push({ i: i, text: 'قطع الفيوز 5 A (تيار تفريغ ' + ibd.toFixed(1) + ' A)' });
+      }
+      var ichg = Math.min(pvW * CHG_EFF / vb, CHG_MAX);
+      if (st.soc > 95) ichg *= Math.max(0.1, (100 - st.soc) / 5);
+      var inet = ichg - ibd;
+
+      st.socA[i] = st.soc; st.pvA[i] = pvW; st.gridA[i] = gridW; st.batA[i] = batW;
+      st.vbA[i] = vb; st.ibA[i] = inet; st.ilA[i] = loadW / vb;
+      st.eCharge += ichg * vb * DT_H; st.ePV += pvW * DT_H; st.eGrid += gridW * DT_H;
+      st.eBat += Math.max(0, batW) * DT_H; st.eLoad += loadW * DT_H;
+      if (shedding) st.shedSteps++;
+      if (st.cut) st.cutSteps++;
+      st.soc = clamp(st.soc + inet * DT_H / CAP * 100, 0, 100);
+
+      if (log) {
+        if (st.gridOn !== pG) events.push({ i: i, text: st.gridOn ? 'تحويل للشبكة (SOC ' + st.soc.toFixed(0) + ' %)' : 'فصل الشبكة والرجوع للبطارية' });
+        if (st.nonShed !== pS) events.push({ i: i, text: st.nonShed ? 'فصل الأحمال غير الأساسية' : 'رجوع الأحمال غير الأساسية' });
+        if (st.cut !== pC) events.push({ i: i, text: st.cut ? 'قطع كامل: وصلت حد عمق التفريغ' : 'رجوع الأحمال بعد الشحن' });
+      }
+    }
+
+    var g = Math.PI / 2, b = PARK_TILT * D2R, stowed = false;
+    var gF = Math.PI, bF = 30 * D2R;
+    var dA = p.delta * D2R, cA = Math.cos(dA), sA = Math.sin(dA), tanD = Math.tan(dA);
+    var DB = p.db * D2R, GAIN = p.gain, slewStep = p.slew * D2R * DT_MIN;
+    var maxB = 85 * D2R;
+
+    for (var i = 0; i < M; i++) {
+      var minute = Math.floor(i / SUB), clockH = i * DT_H / 1;
+      clockH = i * DT_S / 3600;
+      var sp = sunPos(p.day, clockH), sv = sunVec(sp), sinEl = Math.max(0, Math.sin(sp.el));
+      var dniC = p.peak * Math.pow(sinEl, 0.6), dni = dniC * cloudF[minute];
+      var dh = (0.10 + 0.20 * p.cloud / 100) * dniC * sinEl;
+      var elDeg = sp.el * R2D;
+
+      var n = nrm(g, b), ta = tAz(g), tt = tTi(g, b);
+      var sE = dni * Math.max(0, dot(sv, comb(n, ta, cA, sA)));
+      var sW = dni * Math.max(0, dot(sv, comb(n, ta, cA, -sA)));
+      var sT = dni * Math.max(0, dot(sv, comb(n, tt, cA, sA)));
+      var sB = dni * Math.max(0, dot(sv, comb(n, tt, cA, -sA)));
+      var eA = (sE - sW) / (sE + sW + 1), eB = (sT - sB) / (sT + sB + 1);
+      var light = sE + sW + sT + sB, thA = eA / tanD, thB = eB / tanD;
+
+      if (p.wind > WIND_STOW) stowed = true; else if (p.wind < WIND_RESUME) stowed = false;
+
+      var dg = 0, db = 0, mode = 0, instant = false;
+      var parkNow = elDeg <= DAY_MIN_EL;
+      if (stowed) {
+        mode = 2; db = clampSym(STOW_TILT * D2R - b, slewStep);
+      } else if (p.trackMode === 'ideal') {
+        instant = true; mode = parkNow ? 3 : 1;
+        var tgI = parkNow ? PARK_TILT * D2R : clamp(Math.PI / 2 - sp.el, 0, maxB);
+        dg = parkNow ? wrapPi(Math.PI / 2 - g) : wrapPi(sp.az - g);
+        db = tgI - b;
+      } else if (p.trackMode === 'astro') {
+        if (parkNow) { mode = 3; dg = clampSym(wrapPi(Math.PI / 2 - g), slewStep); db = clampSym(PARK_TILT * D2R - b, slewStep); }
+        else { mode = 1; dg = clampSym(wrapPi(sp.az - g), slewStep); db = clampSym(clamp(Math.PI / 2 - sp.el, 0, maxB) - b, slewStep); }
+      } else {
+        if (parkNow) { mode = 3; dg = clampSym(wrapPi(Math.PI / 2 - g), slewStep); db = clampSym(PARK_TILT * D2R - b, slewStep); }
+        else if (light > LIGHT_MIN) {
+          mode = 1;
+          if (Math.abs(thA) > DB) dg = clampSym(GAIN * thA, slewStep);
+          if (Math.abs(thB) > DB) db = clampSym(GAIN * thB, slewStep);
+        } else mode = 0;
+      }
+
+      g += dg; b = clamp(b + db, 0, maxB);
+      var moving = (Math.abs(dg) + Math.abs(db)) > 1e-7 ? 1 : 0;
+
+      var n2 = nrm(g, b);
+      var pTrk = p.panelW * (dni * Math.max(0, dot(sv, n2)) + dh * (1 + Math.cos(b)) / 2) / 1000 * PANEL_EFF;
+      var nF = nrm(gF, bF);
+      var pFix = p.panelW * (dni * Math.max(0, dot(sv, nF)) + dh * (1 + Math.cos(bF)) / 2) / 1000 * PANEL_EFF;
+      var bI = Math.PI / 2 - Math.max(sp.el, 0);
+      var pIdl = p.panelW * (dni + dh * (1 + Math.cos(bI)) / 2) / 1000 * PANEL_EFF;
+
+      stepSrc(src.fix, pFix, i, clockH, false);
+      stepSrc(src.trk, pTrk, i, clockH, true);
+      stepSrc(src.idl, pIdl, i, clockH, false);
+
+      out.el[i] = sp.el; out.az[i] = sp.az; out.gT[i] = g; out.bT[i] = b;
+      out.eA[i] = eA; out.eB[i] = eB;
+      out.errT[i] = Math.acos(clamp(dot(sv, n2), -1, 1)) * R2D;
+      out.errE[i] = Math.sqrt(thA * thA + thB * thB) * R2D;
+      out.spd[i] = (Math.abs(dg) + Math.abs(db)) * R2D / DT_S;
+      out.lE[i] = sE; out.lW[i] = sW; out.lT[i] = sT; out.lB[i] = sB;
+      out.pFix[i] = pFix; out.pTrk[i] = pTrk; out.pIdl[i] = pIdl;
+      out.mode[i] = mode; out.mov[i] = moving;
+      out.dA[i] = dg > 0 ? 1 : dg < 0 ? -1 : 0;
+      out.dB[i] = db > 0 ? 1 : db < 0 ? -1 : 0;
+      out.flag[i] = (src.trk.gridOn ? 1 : 0) | (src.trk.nonShed ? 2 : 0) | (src.trk.cut ? 4 : 0) | (src.trk.blownLeft > 0 ? 8 : 0);
+    }
+    return { out: out, src: src, events: events };
+  }
+
+  /* ================= الاستيفاء بين الخطوات (لحركة سلسة) ================= */
+  function state(tf) {
+    var i0 = Math.floor(tf), i1 = Math.min(M - 1, i0 + 1), f = tf - i0;
+    function L(a) { return a[i0] + (a[i1] - a[i0]) * f; }
+    function A(a) { return a[i0] + wrapPi(a[i1] - a[i0]) * f; }
+    return {
+      el: L(O.el), az: A(O.az), gT: L(O.gT), bT: L(O.bT), eA: L(O.eA), eB: L(O.eB),
+      errT: L(O.errT), errE: L(O.errE), spd: O.spd[i0],
+      lE: L(O.lE), lW: L(O.lW), lT: L(O.lT), lB: L(O.lB),
+      pFix: L(O.pFix), pTrk: L(O.pTrk), pIdl: L(O.pIdl),
+      mov: O.mov[i0], dA: O.dA[i0], dB: O.dB[i0], mode: O.mode[i0], flag: O.flag[i0], i: i0,
+      vb: R.src.trk.vbA[i0], ib: R.src.trk.ibA[i0], il: R.src.trk.ilA[i0]
+    };
+  }
+
+  /* ================= المشهد ثلاثي الأبعاد ================= */
+  var YAW = -35 * D2R, PITCH = 22 * D2R, SC = 190, CX = 230, CY = 230;
+  function proj(p) {
+    var x = p[0], y = p[1], z = p[2];
+    var cy = Math.cos(YAW), sy = Math.sin(YAW);
+    var X = x * cy - y * sy, Y = x * sy + y * cy;
+    var cp = Math.cos(PITCH), sp = Math.sin(PITCH);
+    var Z2 = Y * sp + z * cp;
+    return [CX + X * SC, CY - Z2 * SC];
+  }
+  function addv(a, b, s) { return [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s]; }
+  function pt(q) { var s = proj(q); return s[0].toFixed(1) + ',' + s[1].toFixed(1); }
+  function seg(a, b, attrs) { var A = proj(a), B = proj(b); return '<line x1="' + A[0].toFixed(1) + '" y1="' + A[1].toFixed(1) + '" x2="' + B[0].toFixed(1) + '" y2="' + B[1].toFixed(1) + '" ' + (attrs || '') + '/>'; }
+
+  function drawScene(S) {
+    var g = S.gT, b = S.bT;
+    var sv = sunVec({ el: S.el, az: S.az });
+    var n = nrm(g, b), ta = tAz(g), tt = tTi(g, b);
+    var H = 0.74, Pv = [0, 0, H], c = addv(Pv, n, 0.14), A = 0.36, Bh = 0.24;
+    var lit = S.el > 0, s = '';
+
+    var disk = [];
+    for (var a = 0; a < 48; a++) { var th = a / 48 * 2 * Math.PI; disk.push(pt([0.95 * Math.cos(th), 0.95 * Math.sin(th), 0])); }
+    s += '<polygon points="' + disk.join(' ') + '" fill="var(--subtle)" stroke="var(--border)" stroke-width="1"/>';
+    for (var k = -0.9; k <= 0.91; k += 0.3) {
+      s += seg([k, -0.9, 0], [k, 0.9, 0], 'class="gl" opacity=".6"');
+      s += seg([-0.9, k, 0], [0.9, k, 0], 'class="gl" opacity=".6"');
+    }
+    [['شمال', [0, 1.02, 0]], ['شرق', [1.02, 0, 0]], ['جنوب', [0, -1.02, 0]], ['غرب', [-1.02, 0, 0]]].forEach(function (l) {
+      var q = proj(l[1]); s += '<text x="' + q[0].toFixed(1) + '" y="' + q[1].toFixed(1) + '" text-anchor="middle">' + l[0] + '</text>';
+    });
+
+    var shadowOf = function (q) { var t = q[2] / sv[2]; return [q[0] - sv[0] * t, q[1] - sv[1] * t, 0]; };
+    if (lit && S.el > 8 * D2R) {
+      var p1 = addv(addv(c, ta, A), tt, Bh), p2 = addv(addv(c, ta, -A), tt, Bh);
+      var p3 = addv(addv(c, ta, -A), tt, -Bh), p4 = addv(addv(c, ta, A), tt, -Bh);
+      s += '<polygon points="' + [p1, p2, p3, p4].map(function (q) { return pt(shadowOf(q)); }).join(' ') + '" fill="var(--fg)" fill-opacity=".14"/>';
+      var sb = proj([0, 0, 0]), st2 = proj(shadowOf(Pv));
+      s += '<line x1="' + sb[0] + '" y1="' + sb[1] + '" x2="' + st2[0] + '" y2="' + st2[1] + '" stroke="var(--fg)" stroke-opacity=".14" stroke-width="7" stroke-linecap="round"/>';
+    }
+    if (lit) {
+      var sunP = proj(addv([0, 0, 0], sv, 1.25)), cc = proj(c);
+      s += '<line x1="' + sunP[0] + '" y1="' + sunP[1] + '" x2="' + cc[0] + '" y2="' + cc[1] + '" stroke="var(--ray)" stroke-width="1.2" stroke-dasharray="5 5" opacity=".55"/>';
+      s += '<circle cx="' + sunP[0].toFixed(1) + '" cy="' + sunP[1].toFixed(1) + '" r="13" fill="var(--sun)"/>';
+    }
+
+    var pB = proj([0, 0, 0]), pT = proj(Pv);
+    var dx = pT[0] - pB[0], dy = pT[1] - pB[1], Ln = Math.hypot(dx, dy) || 1;
+    var nx = -dy / Ln, ny = dx / Ln, wB = 9, wT = 6;
+    s += '<polygon points="' + (pB[0] + nx * wB).toFixed(1) + ',' + (pB[1] + ny * wB).toFixed(1) + ' ' + (pT[0] + nx * wT).toFixed(1) + ',' + (pT[1] + ny * wT).toFixed(1) + ' ' + (pT[0] - nx * wT).toFixed(1) + ',' + (pT[1] - ny * wT).toFixed(1) + ' ' + (pB[0] - nx * wB).toFixed(1) + ',' + (pB[1] - ny * wB).toFixed(1) + '" fill="#9aa3ae" stroke="#6b7480" stroke-width=".8"/>';
+    s += '<ellipse cx="' + pB[0].toFixed(1) + '" cy="' + pB[1].toFixed(1) + '" rx="16" ry="5" fill="#6b7480"/>';
+    s += '<text x="' + (pB[0] + 22).toFixed(1) + '" y="' + (pB[1] + 4).toFixed(1) + '">عمود</text>';
+
+    var aP = proj(addv(c, n, -0.05));
+    s += '<line x1="' + pT[0].toFixed(1) + '" y1="' + pT[1].toFixed(1) + '" x2="' + aP[0].toFixed(1) + '" y2="' + aP[1].toFixed(1) + '" stroke="#7a8594" stroke-width="5" stroke-linecap="round"/>';
+
+    var q1 = addv(addv(c, ta, A), tt, Bh), q2 = addv(addv(c, ta, -A), tt, Bh);
+    var q3 = addv(addv(c, ta, -A), tt, -Bh), q4 = addv(addv(c, ta, A), tt, -Bh);
+    var quad = [q1, q2, q3, q4].map(function (q) { return pt(q); }).join(' ');
+    s += '<polygon points="' + quad + '" fill="var(--panel)" stroke="var(--panel-hi)" stroke-width="2"/>';
+    var sheen = Math.max(0, dot(sv, n));
+    s += '<polygon points="' + quad + '" fill="#ffffff" fill-opacity="' + (0.04 + 0.28 * sheen).toFixed(2) + '"/>';
+    for (var r = 1; r < 4; r++) { var f = -Bh + r * 2 * Bh / 4; s += seg(addv(addv(c, ta, -A), tt, f), addv(addv(c, ta, A), tt, f), 'stroke="var(--panel-hi)" stroke-width=".8" opacity=".7"'); }
+    for (var q5 = 1; q5 < 6; q5++) { var f2 = -A + q5 * 2 * A / 6; s += seg(addv(addv(c, ta, f2), tt, -Bh), addv(addv(c, ta, f2), tt, Bh), 'stroke="var(--panel-hi)" stroke-width=".8" opacity=".7"'); }
+
+    var sAz = proj(Pv), sTi = proj(addv(Pv, n, 0.07));
+    s += '<circle cx="' + sAz[0].toFixed(1) + '" cy="' + sAz[1].toFixed(1) + '" r="9" fill="var(--card)" stroke="var(--fg)" stroke-width="1.2"/>';
+    s += '<circle cx="' + sTi[0].toFixed(1) + '" cy="' + sTi[1].toFixed(1) + '" r="7" fill="var(--card)" stroke="var(--fg)" stroke-width="1.2"/>';
+
+    var nT = proj(addv(c, n, 0.42)), cP = proj(c);
+    s += '<line x1="' + cP[0].toFixed(1) + '" y1="' + cP[1].toFixed(1) + '" x2="' + nT[0].toFixed(1) + '" y2="' + nT[1].toFixed(1) + '" stroke="var(--c-trk)" stroke-width="2.4"/>';
+    s += '<circle cx="' + nT[0].toFixed(1) + '" cy="' + nT[1].toFixed(1) + '" r="3.5" fill="var(--c-trk)"/>';
+
+    if (S.mov) {
+      var arrow = function (dir, vec, origin) {
+        if (!dir) return;
+        var len = 0.34, tip = addv(origin, vec, len * dir), base = addv(origin, vec, (len - 0.14) * dir);
+        var A1 = proj(tip), B1 = proj(base), side = [vec[1] * 0.04, -vec[0] * 0.04, 0];
+        var Lp = proj(addv(base, side, 1)), Rp = proj(addv(base, side, -1));
+        s += '<line x1="' + B1[0].toFixed(1) + '" y1="' + B1[1].toFixed(1) + '" x2="' + A1[0].toFixed(1) + '" y2="' + A1[1].toFixed(1) + '" stroke="var(--c-mot)" stroke-width="2.4"/>';
+        s += '<polygon points="' + A1[0].toFixed(1) + ',' + A1[1].toFixed(1) + ' ' + Lp[0].toFixed(1) + ',' + Lp[1].toFixed(1) + ' ' + Rp[0].toFixed(1) + ',' + Rp[1].toFixed(1) + '" fill="var(--c-mot)"/>';
+      };
+      arrow(S.dA, ta, Pv); arrow(S.dB, tt, c);
+    }
+
+    [[addv(c, ta, A * 0.92), 'شرق', S.lE], [addv(c, ta, -A * 0.92), 'غرب', S.lW],
+     [addv(c, tt, Bh * 0.92), 'أعلى', S.lT], [addv(c, tt, -Bh * 0.92), 'أسفل', S.lB]].forEach(function (sn) {
+      var q = proj(sn[0]), v = Math.min(1, sn[2] / 900);
+      s += '<circle cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="6" fill="rgba(245,180,0,' + (0.15 + 0.85 * v).toFixed(2) + ')" stroke="var(--fg)" stroke-width=".7"/>';
+      s += '<text x="' + q[0].toFixed(1) + '" y="' + (q[1] - 9).toFixed(1) + '" text-anchor="middle">' + sn[1] + '</text>';
+    });
+    $('#scene').innerHTML = s;
+  }
+
+  /* ================= البوصلة ================= */
+  function drawCompass(S) {
+    var g = S.gT, b = S.bT, el = S.el, az = S.az, C = 120, Rr = 92;
+    var s = '<circle cx="' + C + '" cy="' + C + '" r="' + Rr + '" fill="none" stroke="var(--border)" stroke-width="1.5"/>';
+    s += '<circle cx="' + C + '" cy="' + C + '" r="' + Rr / 2 + '" fill="none" stroke="var(--subtle)" stroke-width="1"/>';
+    [['ش', 0], ['ق', 90], ['ج', 180], ['غ', 270]].forEach(function (d) {
+      var a = d[1] * D2R, x = C + (Rr + 12) * Math.sin(a), y = C - (Rr + 12) * Math.cos(a);
+      s += '<text x="' + x.toFixed(1) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="middle" class="big">' + d[0] + '</text>';
+    });
+    var rs = Rr * (1 - Math.max(0, el) / (Math.PI / 2));
+    var sx = C + rs * Math.sin(az), sy = C - rs * Math.cos(az);
+    if (el > 0) s += '<circle cx="' + sx.toFixed(1) + '" cy="' + sy.toFixed(1) + '" r="9" fill="var(--sun)"/>';
+    else s += '<text x="' + C + '" y="' + (C + 4) + '" text-anchor="middle" class="big">ليل</text>';
+    var len = Rr * Math.sin(b), fx = C + len * Math.sin(g), fy = C - len * Math.cos(g);
+    s += '<line x1="' + C + '" y1="' + C + '" x2="' + fx.toFixed(1) + '" y2="' + fy.toFixed(1) + '" stroke="var(--c-trk)" stroke-width="5" stroke-linecap="round"/>';
+    s += '<circle cx="' + C + '" cy="' + C + '" r="4" fill="var(--fg)"/>';
+    if (el > 0) s += '<line x1="' + fx.toFixed(1) + '" y1="' + fy.toFixed(1) + '" x2="' + sx.toFixed(1) + '" y2="' + sy.toFixed(1) + '" stroke="var(--c-err)" stroke-width="1.2" stroke-dasharray="3 3"/>';
+    $('#compass').innerHTML = s;
+  }
+
+  /* ================= الرسوم ================= */
+  var CX0 = 60, CX1 = 980;
+  function Xs(j) { return CX0 + j / (M - 1) * (CX1 - CX0); }
+  function drawLines(svgId, series, yMax, yLabel, cursorTag) {
+    var H0 = 10, H1 = 170;
+    function y(v) { return H1 - v / yMax * (H1 - H0); }
+    var s = '';
+    var step = yMax / 4;
+    for (var v = 0; v <= yMax + 0.001; v += step) {
+      s += '<line x1="' + CX0 + '" y1="' + y(v).toFixed(1) + '" x2="' + CX1 + '" y2="' + y(v).toFixed(1) + '" class="gl"/>';
+      s += '<text x="' + (CX0 - 8) + '" y="' + (y(v) + 4).toFixed(1) + '" text-anchor="end">' + Math.round(v) + '</text>';
+    }
+    for (var hh = 0; hh <= 24; hh += 3) {
+      var x = Xs(Math.min(hh * 720, M - 1));
+      s += '<line x1="' + x.toFixed(1) + '" y1="' + H0 + '" x2="' + x.toFixed(1) + '" y2="' + H1 + '" class="gl"/>';
+      s += '<text x="' + x.toFixed(1) + '" y="' + (H1 + 15) + '" text-anchor="middle">' + pad(hh % 24) + ':00</text>';
+    }
+    series.forEach(function (sr) {
+      var pts = [];
+      for (var j = 0; j < M; j += SUB) pts.push(Xs(j).toFixed(1) + ',' + y(sr.arr[j]).toFixed(1));
+      s += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + sr.col + '" stroke-width="' + (sr.w || 1.8) + '"' + (sr.dash ? ' stroke-dasharray="5 4"' : '') + '/>';
+    });
+    s += '<line id="' + cursorTag + '-c" x1="0" x2="0" y1="' + H0 + '" y2="' + H1 + '" stroke="var(--fg)" stroke-width="1.2" opacity=".5"/>';
+    $(svgId).innerHTML = s;
+  }
+  function drawCharts() {
+    var o = R.src, mx = 1;
+    for (var j = 0; j < M; j += SUB) mx = Math.max(mx, O.pIdl[j], O.pTrk[j], O.pFix[j]);
+    var pMax = Math.ceil(mx * 1.1 / 10) * 10;
+    drawLines('#chartPV', [
+      { arr: O.pFix, col: 'var(--c-fix)' }, { arr: O.pTrk, col: 'var(--c-trk)', w: 2.2 }, { arr: O.pIdl, col: 'var(--c-ideal)', dash: true }
+    ], pMax, 'W', 'pv');
+    drawLines('#chartSOC', [
+      { arr: o.fix.socA, col: 'var(--c-fix)' }, { arr: o.trk.socA, col: 'var(--c-trk)', w: 2.2 }, { arr: o.idl.socA, col: 'var(--c-ideal)', dash: true }
+    ], 100, '%', 'soc');
+    drawGen('#chartV', [{ arr: R.src.trk.vbA, col: 'var(--c-trk)', w: 2.2 }], null, null, 'V');
+    drawGen('#chartI', [{ arr: R.src.trk.ibA, col: 'var(--c-trk)', w: 2.2 }, { arr: R.src.trk.ilA, col: 'var(--c-load)', dash: true }], null, null, 'A');
+    updateCursorLines();
+  }
+  function updateCursorLines() {
+    var x = Xs(TF);
+    ['pv', 'soc', 'vv', 'ii'].forEach(function (t) { var c = $('#' + t + '-c'); if (c) { c.setAttribute('x1', x.toFixed(1)); c.setAttribute('x2', x.toFixed(1)); } });
+  }
+
+  /* ================= الجدول والقراءات ================= */
+  function renderCompare() {
+    var rows = [['fix', 'تركيب ثابت (30°، جنوب)'], ['trk', 'متتبع (' + ({ ldr: 'LDR', astro: 'فلكي', ideal: 'مثالي' }[P.trackMode]) + ')'], ['idl', 'مثالي (سقف)']];
+    var eFix = R.src.fix.ePV;
+    var h = '<thead><tr><th>المصدر</th><th>طاقة اللوح (Wh)</th><th>كسب مقابل الثابت</th><th>مخزّنة في البطارية (Wh)</th><th>كفاءة الشحن</th><th>شبكة (Wh)</th><th>SOC النهاية</th><th>فيوز</th><th>دقايق فصل</th></tr></thead><tbody>';
+    var bestCh = -1, bestKey = '';
+    rows.forEach(function (r) { var st = R.src[r[0]], eff = st.ePV > 0 ? st.eCharge / st.ePV * 100 : 0; if (eff > bestCh) { bestCh = eff; bestKey = r[0]; } });
+    rows.forEach(function (r) {
+      var st = R.src[r[0]];
+      var gain = eFix > 0 ? (st.ePV / eFix - 1) * 100 : 0;
+      var eff = st.ePV > 0 ? st.eCharge / st.ePV * 100 : 0;
+      h += '<tr class="' + (r[0] === 'trk' ? 'best' : '') + '"><td>' + r[1] + '</td>' +
+        '<td class="n">' + st.ePV.toFixed(1) + '</td>' +
+        '<td class="n">' + (r[0] === 'fix' ? '—' : (gain >= 0 ? '+' : '') + gain.toFixed(1) + ' %') + '</td>' +
+        '<td class="n">' + st.eCharge.toFixed(1) + '</td>' +
+        '<td class="n">' + eff.toFixed(1) + ' %</td>' +
+        '<td class="n">' + st.eGrid.toFixed(1) + '</td>' +
+        '<td class="n">' + st.socA[M - 1].toFixed(1) + ' %</td>' +
+        '<td class="n">' + st.trips + '</td>' +
+        '<td class="n">' + Math.round(st.shedSteps * DT_S / 60) + '</td></tr>';
+    });
+    $('#cmp').innerHTML = h + '</tbody>';
+
+    var t = R.src.trk, f = R.src.fix, msgs = [];
+    var gain = eFix > 0 ? (t.ePV / eFix - 1) * 100 : 0;
+    msgs.push('المتتبع (' + (gain >= 0 ? '+' : '') + gain.toFixed(1) + ' %) مقابل التركيب الثابت في الطاقة المولدة.');
+    msgs.push('كفاءة الشحن للمتتبع ' + (t.ePV > 0 ? (t.eCharge / t.ePV * 100).toFixed(1) : '0') + ' %، وده بيشمل كفاءة الـ MPPT وتأثير حد الشحن عند الامتلاء.');
+    if (t.cutSteps > 0) msgs.push('<span style="color:var(--bad)">حصل قطع حماية للبطارية لمدة ' + Math.round(t.cutSteps * DT_S / 60) + ' دقيقة.</span>');
+    if (t.trips > 0) msgs.push('<span style="color:var(--bad)">الفيوز قطع ' + t.trips + ' مرة في المتتبع.</span>');
+    if (f.eGrid + t.eGrid > 0) msgs.push('الشبكة ساعدت بـ ' + (t.eGrid).toFixed(0) + ' Wh في المتتبع.');
+    $('#verdict').innerHTML = msgs.map(function (m) { return '<div>• ' + m + '</div>'; }).join('');
+  }
+
+  function renderAll() {
+    var S = state(TF);
+    var rows = [
+      ['الوقت', hhmmss(T)],
+      ['ارتفاع الشمس', (S.el * R2D).toFixed(1) + '°'],
+      ['اتجاه الشمس', (S.az * R2D).toFixed(1) + '°'],
+      ['ميل اللوح / اتجاهه', (S.bT * R2D).toFixed(1) + '° / ' + ((S.gT * R2D % 360 + 360) % 360).toFixed(1) + '°'],
+      ['الخطأ الحقيقي', S.el > 0 ? S.errT.toFixed(2) + '°' : '—'],
+      ['الخطأ المُقدَّر من LDR', S.el > 0 ? S.errE.toFixed(2) + '°' : '—'],
+      ['سرعة السيرفو الفعلية', S.spd.toFixed(1) + ' °/ث'],
+      ['جهد البطارية', S.vb.toFixed(2) + ' V'],
+      ['تيار البطارية (+شحن / −تفريغ)', (S.ib >= 0 ? '+' : '') + S.ib.toFixed(2) + ' A'],
+      ['تيار الحمل', S.il.toFixed(2) + ' A'],
+      ['القدرة: ثابت / متتبع / مثالي', S.pFix.toFixed(1) + ' / ' + S.pTrk.toFixed(1) + ' / ' + S.pIdl.toFixed(1) + ' W']
+    ];
+    $('#readout').innerHTML = rows.map(function (r) { return '<div><span class="k">' + r[0] + '</span><span>' + r[1] + '</span></div>'; }).join('');
+    var MODE = ['ثبات: غيوم أو ضوء ضعيف', 'تتبع نشط', 'حماية الرياح: مسطح', 'ركن ليلي شرقاً'];
+    var bd = [[MODE[S.mode], S.mode === 1 ? 'badge ok' : S.mode === 2 ? 'badge bad' : 'badge'],
+      [S.mov ? 'السيرفو بيتحرك' : 'السيرفو ثابت', S.mov ? 'badge warn' : 'badge'],
+      [S.flag & 8 ? 'فيوز مقطوع (المتتبع)' : (S.flag & 4 ? 'قطع حماية البطارية' : (S.flag & 1 ? 'المتتبع على الشبكة' : 'المتتبع على البطارية')), S.flag & 12 ? 'badge bad' : (S.flag & 1 ? 'badge warn' : 'badge')]];
+    $('#badges').innerHTML = bd.map(function (x) { return '<span class="' + x[1] + '">' + x[0] + '</span>'; }).join('');
+    drawScene(S);
+    drawCompass(S);
+    updateCursorLines();
+  }
+
+  /* ================= جدول الأحمال ================= */
+  function buildLoadTable() {
+    var h = '<thead><tr><th>الحمل</th><th>يشتغل</th><th>أساسي</th><th>من (ساعة)</th><th>لحد (ساعة)</th><th>القدرة (W)</th></tr></thead><tbody>';
+    LOAD_KEYS.forEach(function (k) {
+      var L = P.loads[k];
+      h += '<tr><td>' + L.name + '</td>' +
+        '<td><input type="checkbox" data-k="' + k + '" data-f="on"' + (L.on ? ' checked' : '') + '></td>' +
+        '<td><input type="checkbox" data-k="' + k + '" data-f="ess"' + (L.ess ? ' checked' : '') + '></td>' +
+        '<td><input type="number" min="0" max="23" data-k="' + k + '" data-f="s" value="' + L.s + '"></td>' +
+        '<td><input type="number" min="0" max="23" data-k="' + k + '" data-f="e" value="' + L.e + '"></td>' +
+        '<td><input type="number" min="1" max="200" data-k="' + k + '" data-f="W" value="' + L.W + '"></td></tr>';
+    });
+    $('#loadtbl').innerHTML = h + '</tbody>';
+  }
+  $('#loadtbl').addEventListener('change', function (e) {
+    var el = e.target, k = el.dataset.k, f = el.dataset.f;
+    if (!k) return;
+    if (el.type === 'checkbox') P.loads[k][f] = el.checked;
+    else P.loads[k][f] = clamp(+el.value, f === 'W' ? 1 : 0, f === 'W' ? 200 : 23);
+    runSim();
+  });
+
+  /* ================= التحكم ================= */
+  function setT(v) {
+    TF = clamp(v, 0, M - 1); T = Math.floor(TF);
+    $('#scrub').value = T; $('#scrub-t').textContent = hhmmss(T);
+    var hrs = T * DT_S / 3600; $('#tm').value = pad(Math.floor(hrs)) + ':' + pad(Math.floor((hrs % 1) * 60));
+    renderAll();
+  }
+  function syncControls() {
+    $('#date').value = dateFromDay(P.day);
+    $('#cloud').value = P.cloud; $('#cloud-v').textContent = P.cloud + ' %';
+    $('#peak').value = P.peak; $('#peak-v').textContent = P.peak + ' W/m²';
+    $('#panelW').value = P.panelW; $('#panelW-v').textContent = P.panelW + ' W';
+    $('#loadMult').value = P.loadMult; $('#loadMult-v').textContent = '×' + P.loadMult.toFixed(2);
+    $('#socStart').value = P.socStart; $('#socStart-v').textContent = P.socStart + ' %';
+    $('#dod').value = P.dod;
+    $('#gridMode').value = P.gridMode;
+    $('#gridThr').value = P.gridThr; $('#gridThr-v').textContent = P.gridThr + ' %';
+    $('#shedThr').value = P.shedThr; $('#shedThr-v').textContent = P.shedThr + ' %';
+    $('#trackMode').value = P.trackMode;
+    $('#wind').value = P.wind; $('#wind-v').textContent = P.wind + ' م/ث' + (P.wind > WIND_STOW ? ' (حماية)' : '');
+    $('#slew').value = P.slew; $('#slew-v').textContent = P.slew + ' °/د';
+    $('#db').value = P.db; $('#db-v').textContent = P.db.toFixed(1) + '°';
+    $('#gain').value = P.gain; $('#gain-v').textContent = P.gain.toFixed(2);
+    $('#delta').value = P.delta; $('#delta-v').textContent = P.delta + '°';
+    $('#wear').value = P.wear; $('#wear-v').textContent = P.wear.toFixed(1);
+    var floor = 100 - P.dod;
+    $('#floor-note').textContent = 'عمق التفريغ ' + P.dod + ' % يعني الأحمال كلها تتقطع عند SOC ' + floor + ' % لو الشبكة مش شغالة. الشبكة بتشتغل تحت ' + P.gridThr + ' %، والأحمال غير الأساسية بتتفصل تحت ' + P.shedThr + ' %.';
+  }
+  function clearPresets() { document.querySelectorAll('#presets button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); }); }
+  function runSim() {
+    O = null;
+    var r = simulate(P);
+    R = r; O = r.out;
+    drawCharts(); renderCompare(); setT(TF);
+  }
+  function applyRun() { P.seed = PRESET_SEEDS[P.day] || 7; runSim(); }
+
+  var bind = function (id, key, conv, label) {
+    $(id).addEventListener('input', function (e) {
+      P[key] = conv(e.target.value); syncControls(); applyRun();
+    });
+  };
+  bind('#cloud', 'cloud', Number);
+  bind('#peak', 'peak', Number);
+  bind('#panelW', 'panelW', Number);
+  bind('#loadMult', 'loadMult', Number);
+  bind('#socStart', 'socStart', Number);
+  bind('#gridThr', 'gridThr', Number);
+  bind('#shedThr', 'shedThr', Number);
+  bind('#wind', 'wind', Number);
+  bind('#slew', 'slew', Number);
+  bind('#db', 'db', Number);
+  bind('#gain', 'gain', Number);
+  bind('#delta', 'delta', Number);
+  bind('#wear', 'wear', Number);
+  $('#dod').addEventListener('change', function (e) { P.dod = +e.target.value; syncControls(); applyRun(); });
+  $('#gridMode').addEventListener('change', function (e) { P.gridMode = e.target.value; applyRun(); });
+  $('#trackMode').addEventListener('change', function (e) { P.trackMode = e.target.value; applyRun(); });
+  $('#date').addEventListener('change', function (e) { P.day = dayFromDate(e.target.value); clearPresets(); syncControls(); applyRun(); });
+  $('#presets').addEventListener('click', function (e) {
+    var b2 = e.target.closest('button'); if (!b2) return;
+    P.day = +b2.dataset.d; clearPresets(); b2.setAttribute('aria-pressed', 'true');
+    syncControls(); applyRun();
+  });
+  $('#tm').addEventListener('change', function (e) {
+    var parts = e.target.value.split(':'); var hrs = (+parts[0]) + (+parts[1] || 0) / 60;
+    setT(hrs * 3600 / DT_S);
+  });
+  $('#scrub').addEventListener('input', function (e) { setT(+e.target.value); });
+  $('#speed').addEventListener('change', function (e) { speed = +e.target.value; });
+  $('#btn-play').addEventListener('click', function () {
+    playing = !playing;
+    this.textContent = playing ? 'إيقاف ⏸' : 'تشغيل ▶';
+    if (playing && TF >= M - 1) setT(0);
+    lastFrame = 0;
+    if (playing) requestAnimationFrame(step);
+  });
+  function step(now) {
+    if (!playing) return;
+    if (!lastFrame) lastFrame = now;
+    var dt = (now - lastFrame) / 1000; lastFrame = now;
+    setT(TF + dt * speed * SUB);
+    if (TF >= M - 1) { playing = false; $('#btn-play').textContent = 'تشغيل ▶'; return; }
+    requestAnimationFrame(step);
+  }
+
+  var themes = ['auto', 'light', 'dark'], ti = 0, LABEL = { auto: 'الوضع: تلقائي', light: 'الوضع: فاتح', dark: 'الوضع: داكن' };
+  $('#btn-theme').addEventListener('click', function () {
+    ti = (ti + 1) % themes.length;
+    if (themes[ti] === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', themes[ti]);
+    this.textContent = LABEL[themes[ti]];
+  });
+  $('#btn-print').addEventListener('click', function () { window.print(); });
+
+
+  /* ================= رسم عام بمقياس تلقائي ================= */
+  function drawGen(svgId, series, yMin, yMax, unit) {
+    var tag = svgId === '#chartV' ? 'vv' : 'ii';
+    if (yMin === null) {
+      yMin = Infinity; yMax = -Infinity;
+      series.forEach(function (sr) { for (var j = 0; j < M; j += SUB) { var v = sr.arr[j]; if (v < yMin) yMin = v; if (v > yMax) yMax = v; } });
+      var padY = (yMax - yMin) * 0.1 || 0.5; yMin -= padY; yMax += padY;
+    }
+    var H0 = 10, H1 = 170;
+    function y(v) { return H1 - (v - yMin) / (yMax - yMin) * (H1 - H0); }
+    var s = '';
+    for (var k = 0; k <= 4; k++) {
+      var v2 = yMin + (yMax - yMin) * k / 4;
+      s += '<line x1="' + CX0 + '" y1="' + y(v2).toFixed(1) + '" x2="' + CX1 + '" y2="' + y(v2).toFixed(1) + '" class="gl"/>';
+      s += '<text x="' + (CX0 - 8) + '" y="' + (y(v2) + 4).toFixed(1) + '" text-anchor="end">' + v2.toFixed(unit === 'V' ? 2 : 1) + '</text>';
+    }
+    for (var hh = 0; hh <= 24; hh += 3) {
+      var x = Xs(Math.min(hh * 720, M - 1));
+      s += '<line x1="' + x.toFixed(1) + '" y1="' + H0 + '" x2="' + x.toFixed(1) + '" y2="' + H1 + '" class="gl"/>';
+      s += '<text x="' + x.toFixed(1) + '" y="' + (H1 + 15) + '" text-anchor="middle">' + pad(hh % 24) + ':00</text>';
+    }
+    series.forEach(function (sr) {
+      var pts = [];
+      for (var j = 0; j < M; j += SUB) pts.push(Xs(j).toFixed(1) + ',' + y(sr.arr[j]).toFixed(1));
+      s += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + sr.col + '" stroke-width="' + (sr.w || 1.8) + '"' + (sr.dash ? ' stroke-dasharray="5 4"' : '') + '/>';
+    });
+    s += '<line id="' + tag + '-c" x1="0" x2="0" y1="' + H0 + '" y2="' + H1 + '" stroke="var(--fg)" stroke-width="1.2" opacity=".5"/>';
+    $(svgId).innerHTML = s;
+  }
+
+  /* ================= حفظ الأيام ================= */
+  var STORE_KEY = 'solarSim.days';
+  function loadDays() { try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch (e) { return []; } }
+  function saveDays(list) { try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); return true; } catch (e) { return false; } }
+  function r1(v) { return Math.round(v * 10) / 10; }
+  function downs(arr) { var out = []; for (var j = 0; j < M; j += SUB) out.push(Math.round(arr[j] * 100) / 100); return out; }
+  function saveToday() {
+    var list = loadDays(), t = R.src.trk, f = R.src.fix, d = R.src.idl;
+    var rec = {
+      id: Date.now(), date: $('#date').value, day: P.day, params: JSON.parse(JSON.stringify(P)),
+      summary: { trkWh: r1(t.ePV), fixWh: r1(f.ePV), idlWh: r1(d.ePV), chgEffTrk: r1(t.ePV > 0 ? t.eCharge / t.ePV * 100 : 0), gridTrk: r1(t.eGrid), socEnd: r1(t.socA[M - 1]), trips: t.trips },
+      curves: { pvTrk: downs(O.pTrk), pvFix: downs(O.pFix), vb: downs(t.vbA), ib: downs(t.ibA), il: downs(t.ilA), soc: downs(t.socA) }
+    };
+    list.unshift(rec);
+    if (!saveDays(list)) { alert('المساحة المحفوظة ممتلئة. احذف أيام قديمة أو صدّرها أولاً.'); return; }
+    renderDays();
+  }
+  function renderDays() {
+    var list = loadDays();
+    if (!list.length) { $('#days').innerHTML = '<div class="note">ما فيش أيام محفوظة لسه.</div>'; return; }
+    $('#days').innerHTML = list.map(function (r) {
+      return '<div class="day-row"><span>' + r.date + '</span><span class="note">ترك ' + r.summary.trkWh + ' Wh · ثابت ' + r.summary.fixWh + ' Wh · كفاءة شحن ' + r.summary.chgEffTrk + ' % · شبكة ' + r.summary.gridTrk + ' Wh</span>' +
+        '<span><button type="button" data-act="load" data-id="' + r.id + '">حمّل</button> <button type="button" data-act="del" data-id="' + r.id + '">احذف</button></span></div>';
+    }).join('');
+  }
+  function loadDay(id) {
+    var rec = loadDays().filter(function (r) { return String(r.id) === String(id); })[0];
+    if (!rec) return;
+    var keep = JSON.parse(JSON.stringify(rec.params));
+    Object.keys(keep).forEach(function (k) { P[k] = keep[k]; });
+    clearPresets(); syncControls(); buildLoadTable(); applyRun();
+  }
+  function deleteDay(id) { saveDays(loadDays().filter(function (r) { return String(r.id) !== String(id); })); renderDays(); }
+  function exportDays() {
+    var blob = new Blob([JSON.stringify(loadDays(), null, 1)], { type: 'application/json' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'solar-days.json'; a.click();
+  }
+
+  /* ================= التحسين (بحث شبكي) ================= */
+  var lastTop = [], prevP = null;
+  function evalParams(q) {
+    var r = simulate(q), t = r.src.trk;
+    var cutMin = t.cutSteps * DT_S / 60, served = t.eLoad - t.eGrid;
+    var depth = q.dod / 100;
+    var wearCost = q.wear * depth * depth * t.eBat * 0.5;   /* التفريغ العميق بيقصّر عمر البطارية */
+    return { score: served - 5 * t.trips - 0.5 * cutMin - wearCost, served: served, grid: t.eGrid, trips: t.trips, cutMin: cutMin, wear: wearCost, p: q };
+  }
+  function optimize() {
+    var all = [];
+    [20, 30, 40].forEach(function (g) { [5, 10, 15].forEach(function (sh) { [50, 70, 90].forEach(function (dd) {
+      var q = JSON.parse(JSON.stringify(P));
+      q.gridThr = g; q.shedThr = sh; q.dod = dd; q.gridMode = 'auto';
+      all.push(evalParams(q));
+    }); }); });
+    all.sort(function (a, b) { return b.score - a.score; });
+    lastTop = all.slice(0, 5).map(function (e) { return { gridThr: e.p.gridThr, shedThr: e.p.shedThr, dod: e.p.dod, score: r1(e.score), served: r1(e.served), grid: r1(e.grid), trips: e.trips }; });
+    return all[0];
+  }
+  function showOptTable() {
+    var h = '<thead><tr><th>الترتيب</th><th>عتبة الشبكة</th><th>فصل غير الأساسي</th><th>عمق التفريغ</th><th>الطاقة المخدومة (Wh)</th><th>شبكة (Wh)</th><th>فيوز</th><th>النتيجة</th></tr></thead><tbody>';
+    lastTop.forEach(function (c, i) {
+      h += '<tr><td>' + (i + 1) + '</td><td class="n">' + c.gridThr + ' %</td><td class="n">' + c.shedThr + ' %</td><td class="n">' + c.dod + ' %</td><td class="n">' + c.served + '</td><td class="n">' + c.grid + '</td><td class="n">' + c.trips + '</td><td class="n">' + c.score + '</td></tr>';
+    });
+    $('#opt-tbl').innerHTML = h + '</tbody>';
+  }
+  function applySettings(q) {
+    P.gridThr = q.gridThr; P.shedThr = q.shedThr; P.dod = q.dod;
+    if (q.trackMode) P.trackMode = q.trackMode;
+    syncControls(); applyRun();
+  }
+  $('#btn-opt').addEventListener('click', function () {
+    $('#opt-msg').textContent = 'جاري التجربة على 27 إعداد...';
+    setTimeout(function () {
+      prevP = JSON.parse(JSON.stringify(P));
+      var best = optimize();
+      showOptTable();
+      applySettings({ gridThr: best.p.gridThr, shedThr: best.p.shedThr, dod: best.p.dod });
+      $('#btn-undo').disabled = false;
+      $('#opt-msg').textContent = 'أفضل إعداد اتطبق: شبكة تحت ' + best.p.gridThr + ' %، فصل غير أساسي تحت ' + best.p.shedThr + ' %، عمق تفريغ ' + best.p.dod + ' %. النتيجة ' + r1(best.score) + '.';
+    }, 30);
+  });
+  $('#btn-undo').addEventListener('click', function () {
+    if (!prevP) return;
+    P = JSON.parse(JSON.stringify(prevP)); syncControls(); buildLoadTable(); applyRun();
+    this.disabled = true; $('#opt-msg').textContent = 'رجعنا للإعداد السابق.';
+  });
+
+  /* ================= الاتصال بنموذج ذكاء اصطناعي (اختياري) ================= */
+  function setAiMsg(t) { $('#ai-msg').textContent = t; }
+  $('#btn-ai').addEventListener('click', function () {
+    var url = $('#ai-url').value.trim();
+    if (!/^https?:\/\//.test(url)) { setAiMsg('أدخل رابط https صحيح أولاً.'); return; }
+    var t = R.src.trk;
+    var payload = {
+      day: P.day, params: P, summary: { trkWh: t.ePV, fixWh: R.src.fix.ePV, idlWh: R.src.idl.ePV, chgEff: t.ePV > 0 ? t.eCharge / t.ePV : 0, gridWh: t.eGrid, batteryWh: t.eBat, socEnd: t.socA[M - 1], trips: t.trips, cutMin: t.cutSteps * DT_S / 60 },
+      candidates: lastTop
+    };
+    setAiMsg('جاري الإرسال...');
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-App-Token': $('#ai-token').value }, body: JSON.stringify(payload) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j.gridThr === undefined || j.shedThr === undefined || j.dod === undefined) throw new Error('الرد لازم يحتوي gridThr و shedThr و dod');
+        var q = { gridThr: clamp(+j.gridThr, 15, 50), shedThr: clamp(+j.shedThr, 5, 30), dod: [50, 70, 80, 90].indexOf(+j.dod) >= 0 ? +j.dod : 70 };
+        if (['ldr', 'astro', 'ideal'].indexOf(j.trackMode) >= 0) q.trackMode = j.trackMode;
+        prevP = JSON.parse(JSON.stringify(P));
+        applySettings(q); $('#btn-undo').disabled = false;
+        setAiMsg('الاقتراح اتطبق' + (j.note ? ': ' + j.note : '.'));
+      })
+      .catch(function (err) { setAiMsg('ما قدرناش نطبق الرد: ' + err.message); });
+  });
+
+  /* ================= أزرار الأيام ================= */
+  $('#btn-save').addEventListener('click', saveToday);
+  $('#btn-export').addEventListener('click', exportDays);
+  $('#days').addEventListener('click', function (e) {
+    var b3 = e.target.closest('button[data-act]'); if (!b3) return;
+    if (b3.dataset.act === 'load') loadDay(b3.dataset.id);
+    else if (b3.dataset.act === 'del') deleteDay(b3.dataset.id);
+  });
+  renderDays();
+
+  /* ================= بدء ================= */
+  buildLoadTable();
+  document.querySelector('#presets button[data-d="304"]').setAttribute('aria-pressed', 'true');
+  syncControls();
+  applyRun();
+})();
+</script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}</script>
+</body>
+</html>
